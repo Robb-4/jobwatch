@@ -27,6 +27,51 @@ const PAGES: Record<string, { label: string; render: PageRenderer }> = {
 
 const app = document.getElementById('app') as HTMLElement;
 
+// ---------- Thème : auto (réglage du système), clair ou sombre, mémorisé localement ----------
+type Theme = 'auto' | 'light' | 'dark';
+const THEME_KEY = 'jobwatch-theme';
+const THEME_LABELS: Record<Theme, string> = { auto: '◐ Auto', light: '☀ Clair', dark: '☾ Sombre' };
+const THEME_NEXT: Record<Theme, Theme> = { auto: 'dark', dark: 'light', light: 'auto' };
+
+function readTheme(): Theme {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return value === 'light' || value === 'dark' ? value : 'auto';
+  } catch {
+    return 'auto';
+  }
+}
+
+function applyTheme(theme: Theme): void {
+  if (theme === 'auto') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+}
+
+function themeButton(): HTMLButtonElement {
+  let theme = readTheme();
+  const button = h(
+    'button',
+    {
+      class: 'theme-toggle',
+      title: 'Thème : auto, sombre ou clair',
+      onClick: () => {
+        theme = THEME_NEXT[theme];
+        try {
+          localStorage.setItem(THEME_KEY, theme);
+        } catch {
+          /* stockage indisponible : le choix vaut pour la session */
+        }
+        applyTheme(theme);
+        button.textContent = THEME_LABELS[theme];
+      },
+    },
+    THEME_LABELS[theme],
+  );
+  return button;
+}
+
+applyTheme(readTheme());
+
 function parseHash(): { page: string; params: URLSearchParams } {
   const raw = location.hash.replace(/^#\/?/, '');
   const [path = '', query = ''] = raw.split('?');
@@ -54,6 +99,7 @@ function topbar(active: string, email: string | undefined): HTMLElement {
     h('span', { class: 'spacer' }),
     actions,
     h('span', { class: 'user' }, email ?? ''),
+    themeButton(),
     h('button', { onClick: () => void supabase.auth.signOut() }, 'Déconnexion'),
   );
 }
@@ -71,7 +117,7 @@ async function render(): Promise<void> {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
     if (!session) {
-      replaceChildren(app, h('main', {}, renderLogin()));
+      replaceChildren(app, h('main', {}, h('div', { class: 'login-theme' }, themeButton()), renderLogin()));
       return;
     }
 
