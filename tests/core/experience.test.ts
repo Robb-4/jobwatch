@@ -27,6 +27,10 @@ describe('détection des exigences d’expérience', () => {
     expect(detect('Société créée il y a 12 ans, leader de son marché')).toBeNull();
   });
 
+  it('ignore une durée implausible même avec un mot de contexte (ancienneté d’une société)', () => {
+    expect(detect('Fort de 30 ans d’expérience, notre cabinet recrute un analyste.')).toBeNull();
+  });
+
   it('ignore un plafond (« moins de 5 ans »)', () => {
     expect(detect('moins de 5 ans d’expérience')).toBeNull();
   });

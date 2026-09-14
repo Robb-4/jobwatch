@@ -32,6 +32,13 @@ export const EXPERIENCE_CONTEXT_WORDS: readonly string[] = [
 export const EXPERIENCE_CONTEXT_WINDOW = 80;
 
 /**
+ * Au-delà, « N ans » n'est pas une exigence d'expérience mais l'ancienneté
+ * d'une société (« 30 ans d'expérience à votre service »), même avec un mot
+ * de contexte à proximité. Observé sur une vraie récolte Adzuna.
+ */
+export const EXPERIENCE_MAX_PLAUSIBLE_YEARS = 20;
+
+/**
  * Mots précédant immédiatement « N ans » qui en font un plafond, pas un
  * minimum (« moins de 5 ans d'expérience » ne rejette pas).
  */
@@ -95,6 +102,7 @@ export function detectExperienceRequirements(
     const high = highToken ? toNumber(highToken) : null;
     // Fourchette : la borne basse est le minimum réellement exigé.
     const years = high !== null ? Math.min(low, high) : low;
+    if (years > EXPERIENCE_MAX_PLAUSIBLE_YEARS) continue;
 
     // Plafond (« moins de 5 ans ») : pas une exigence minimale.
     const before = normalizedText.slice(Math.max(0, start - 20), start);
