@@ -194,7 +194,8 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
 
 function stat(value: number, label: string, status: string): HTMLElement {
   const content = [h('div', { class: 'value' }, String(value)), h('div', { class: 'label' }, label)];
+  const cls = `stat stat-${status || 'total'}`;
   return status
-    ? h('a', { class: 'stat', href: `#/offers?status=${status}`, style: 'text-decoration:none;color:inherit' }, ...content)
-    : h('div', { class: 'stat' }, ...content);
+    ? h('a', { class: cls, href: `#/offers?status=${status}`, style: 'color:inherit' }, ...content)
+    : h('div', { class: cls }, ...content);
 }
