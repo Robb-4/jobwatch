@@ -12,6 +12,8 @@ permissions:
 jobs:
   purge:
     runs-on: ubuntu-latest
+    # Les secrets sont stockés dans l'environnement GitHub « jobwatch »
+    environment: jobwatch
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

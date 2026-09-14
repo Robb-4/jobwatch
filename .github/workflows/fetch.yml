@@ -16,6 +16,8 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    # Les secrets sont stockés dans l'environnement GitHub « jobwatch »
+    environment: jobwatch
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4

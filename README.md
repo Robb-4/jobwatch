@@ -94,8 +94,10 @@ Brevo, Mailgun, OVH…). Port 587 (STARTTLS) par défaut, 465 pour TLS implicite
 ### 1.6 Renseigner les secrets GitHub
 
 Créer un dépôt GitHub (privé ou public : aucune donnée n'y transite), pousser
-le code, puis **Settings → Secrets and variables → Actions → New repository
-secret** pour chacun :
+le code, puis **Settings → Environments → New environment**, nommé exactement
+`jobwatch`, et y ajouter chaque secret (**Add environment secret**). Les
+workflows déclarent `environment: jobwatch` et ne lisent que ces secrets-là ;
+les secrets *Codespaces* et *Dependabot* ne servent à rien ici.
 
 | Secret | Contenu |
 | ------ | ------- |
