@@ -168,12 +168,15 @@ Quatre règles évaluées en séquence sur du texte normalisé (minuscules, sans
 accents ni HTML ni ponctuation ; correspondance en **mots entiers**) ; la
 première qui échoue donne le motif :
 
-1. **Intitulé** contient une expression acceptée → sinon `title_not_matching`
-2. **Finance / banque / assurance** : code NAF `64`/`65`/`66` (`finance_naf`) ou
+1. **Intitulé** : aucune expression exclue (`title_excluded`, ex. « data
+   center ») et au moins une expression acceptée (`title_not_matching`)
+2. **Lieu** : contient une expression de la liste « Lieux acceptés »
+   (`location_not_matching`). Liste vide = toute la France ; lieu absent = passe.
+3. **Finance / banque / assurance** : code NAF `64`/`65`/`66` (`finance_naf`) ou
    mot-clé dans l'entreprise, le secteur ou les 400 premiers caractères de la
    description (`finance_keyword`)
-3. **Contrat** : CDI uniquement, avec alias (`permanent` → CDI)
-4. **Expérience** : mots de séniorité dans le titre (`seniority_title`) puis la
+4. **Contrat** : CDI uniquement, avec alias (`permanent` → CDI)
+5. **Expérience** : mots de séniorité dans le titre (`seniority_title`) puis la
    description (`seniority_description`, liste séparée), puis exigence explicite
    au-delà du seuil (`experience_too_high`) — chiffres et nombres en lettres,
    borne basse des fourchettes, mot de contexte obligatoire à ±80 caractères,
@@ -182,7 +185,7 @@ première qui échoue donne le motif :
 Les offres rejetées sont **conservées** avec leur motif et l'élément
 déclencheur : c'est le seul moyen de repérer un filtre trop agressif.
 
-Les sept critères modifiables depuis l'interface (page *Critères*) sont stockés
+Les neuf critères modifiables depuis l'interface (page *Critères*) sont stockés
 dans `settings` comme écarts par rapport aux défauts de `src/core/config.ts`.
 Le reste (mots de contexte, fenêtre, alias de contrat, paramètres d'API) reste
 dans le code, commenté sur place.

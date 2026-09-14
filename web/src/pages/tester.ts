@@ -35,6 +35,7 @@ export async function renderTester(root: HTMLElement): Promise<void> {
   const wide = 'width:100%';
   const title = h('input', { type: 'text', placeholder: 'Ex. Data Analyst H/F', style: wide });
   const company = h('input', { type: 'text', placeholder: 'Ex. CHU de Nantes', style: wide });
+  const location = h('input', { type: 'text', placeholder: 'Ex. Paris, Ile-de-France', style: wide });
   const sector = h('input', { type: 'text', placeholder: 'Ex. Activités hospitalières', style: wide });
   const naf = h('input', { type: 'text', placeholder: 'Ex. 8610Z', style: wide });
   const contract = h('input', { type: 'text', placeholder: 'Ex. CDI, permanent…', style: wide });
@@ -48,6 +49,7 @@ export async function renderTester(root: HTMLElement): Promise<void> {
     const offer: FilterableOffer = {
       title: title.value,
       company: company.value || null,
+      location: location.value || null,
       sector: sector.value || null,
       nafCode: naf.value || null,
       contractType: contract.value || null,
@@ -89,7 +91,9 @@ export async function renderTester(root: HTMLElement): Promise<void> {
             .join(', ')} — seuil : ${config.maxExperienceYears} an(s).`;
   };
 
-  for (const input of [title, company, sector, naf, contract, description]) input.addEventListener('input', evaluate);
+  for (const input of [title, company, location, sector, naf, contract, description]) {
+    input.addEventListener('input', evaluate);
+  }
   evaluate();
 
   const field = (label: string, input: HTMLElement) =>
@@ -112,6 +116,7 @@ export async function renderTester(root: HTMLElement): Promise<void> {
         { class: 'card' },
         field('Intitulé', title),
         field('Entreprise', company),
+        field('Lieu', location),
         field('Secteur déclaré', sector),
         field('Code NAF (France Travail uniquement)', naf),
         field('Type de contrat', contract),

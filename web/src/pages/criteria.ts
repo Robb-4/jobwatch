@@ -13,7 +13,7 @@ import { supabase } from '../supabase';
 import { badge, errorMessage, h, loading, replaceChildren } from '../ui';
 
 /**
- * Les sept critères. Seuls les écarts par rapport aux valeurs livrées sont
+ * Les critères modifiables. Seuls les écarts par rapport aux valeurs livrées sont
  * enregistrés dans `settings` ; rétablir une valeur d'origine supprime la ligne.
  */
 
@@ -141,7 +141,7 @@ export async function renderCriteria(root: HTMLElement): Promise<void> {
       type: 'button',
       class: 'danger',
       onClick: () => {
-        if (!window.confirm('Revenir à la configuration livrée pour les sept critères ?')) return;
+        if (!window.confirm('Revenir à la configuration livrée pour tous les critères ?')) return;
         saveConfig(DEFAULT_FILTER_CONFIG)
           .then(() => {
             location.reload();

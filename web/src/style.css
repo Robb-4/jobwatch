@@ -122,6 +122,24 @@ a.stat:hover { transform: translateY(-2px); text-decoration: none; box-shadow: 0
 .stat-rejected .value { color: var(--error); }
 .stat-total { border-left-color: var(--brand); }
 .stat-total .value { color: var(--brand); }
+.stat-todo { border-left-color: var(--warn); background: var(--warn-bg); }
+.stat-todo .value { color: var(--warn); }
+
+/* ---------- À traiter ---------- */
+.todo-header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.todo-header h1 { margin: 0; }
+.todo-card { transition: opacity 0.2s ease, transform 0.2s ease; }
+.todo-card.todo-done { opacity: 0; transform: translateX(24px); }
+.todo-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.todo-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.todo-title:hover { color: var(--brand); }
+.todo-date { text-align: right; }
+.todo-card details { margin: 12px 0; }
+.todo-card summary { cursor: pointer; color: var(--brand); font-weight: 500; }
+.todo-desc { margin-top: 8px; padding: 12px 14px; background: #f8f9fd; border-radius: 8px; color: #333c50; line-height: 1.55; white-space: pre-line; }
+.todo-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+button.success { background: var(--ok); border-color: var(--ok); color: #fff; }
+button.success:hover { background: #0f5a36; }
 
 /* ---------- Tableaux ---------- */
 table { width: 100%; border-collapse: collapse; }

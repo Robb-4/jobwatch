@@ -6,6 +6,7 @@ import type { FilterableOffer } from '../../src/core/types';
 const base: FilterableOffer = {
   title: 'Data Analyst H/F',
   company: 'Hôpital Universitaire',
+  location: 'Paris, Ile-de-France',
   sector: 'Santé',
   nafCode: '8610Z',
   contractType: 'CDI',
@@ -27,6 +28,43 @@ describe('règle 1 — intitulé', () => {
 
   it('accepte « Analyste de données »', () => {
     expect(withOffer({ title: 'Analyste de données junior' })).toEqual({ accepted: true });
+  });
+
+  it('exclut les offres « data center » même si « data » est présent', () => {
+    expect(withOffer({ title: 'Électricien Data Center H/F' })).toEqual({
+      accepted: false,
+      reason: 'title_excluded',
+      detail: 'titre: data center',
+    });
+    expect(withOffer({ title: 'Technicien Datacenter' })).toMatchObject({ reason: 'title_excluded' });
+  });
+});
+
+describe('règle 2 — lieu', () => {
+  const zone = { ...DEFAULT_FILTER_CONFIG, acceptedLocations: ['Paris', 'Ile-de-France', '92', 'Hauts-de-Seine'] };
+
+  it('sans liste, ne filtre rien', () => {
+    expect(withOffer({ location: 'Béziers, Hérault' })).toEqual({ accepted: true });
+  });
+
+  it('accepte un lieu de la zone (ville, région ou numéro de département)', () => {
+    expect(evaluateOffer({ ...base, location: 'Nanterre, Hauts-de-Seine' }, zone)).toEqual({ accepted: true });
+    expect(evaluateOffer({ ...base, location: '92 - NANTERRE' }, zone)).toEqual({ accepted: true });
+    expect(evaluateOffer({ ...base, location: 'Saint-Denis, Ile-de-France' }, zone)).toEqual({ accepted: true });
+  });
+
+  it('rejette un lieu hors zone et une offre « France » sans précision', () => {
+    expect(evaluateOffer({ ...base, location: 'Béziers, Hérault' }, zone)).toEqual({
+      accepted: false,
+      reason: 'location_not_matching',
+      detail: 'lieu: Béziers, Hérault',
+    });
+    expect(evaluateOffer({ ...base, location: 'France' }, zone)).toMatchObject({ reason: 'location_not_matching' });
+    expect(evaluateOffer({ ...base, location: 'France' }, { ...zone, acceptedLocations: [...zone.acceptedLocations, 'France'] })).toEqual({ accepted: true });
+  });
+
+  it('laisse passer un lieu absent', () => {
+    expect(evaluateOffer({ ...base, location: null }, zone)).toEqual({ accepted: true });
   });
 });
 
@@ -132,10 +170,10 @@ describe('ordre des règles et configuration', () => {
     expect(withOffer({ title: 'Comptable', company: 'BNP Paribas' })).toMatchObject({ reason: 'title_not_matching' });
   });
 
-  it('evaluateRules détaille les quatre règles', () => {
+  it('evaluateRules détaille les cinq règles', () => {
     const outcomes = evaluateRules({ ...base, title: 'Senior Data Analyst', nafCode: '6419Z' });
-    expect(outcomes.map((o) => o.rule)).toEqual(['title', 'finance', 'contract', 'experience']);
-    expect(outcomes.map((o) => o.passed)).toEqual([true, false, true, false]);
+    expect(outcomes.map((o) => o.rule)).toEqual(['title', 'location', 'finance', 'contract', 'experience']);
+    expect(outcomes.map((o) => o.passed)).toEqual([true, true, false, true, false]);
   });
 
   it('respecte une configuration surchargée', () => {

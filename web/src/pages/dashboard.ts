@@ -40,7 +40,7 @@ function unwrap<T>(result: { data: T | null; error: { message: string } | null }
 
 export async function renderDashboard(root: HTMLElement): Promise<void> {
   root.append(loading());
-  const [statuses, reasons, runs, recent] = await Promise.all([
+  const [statuses, reasons, runs, recent, todo] = await Promise.all([
     supabase.from('job_offer_status_counts').select('*').then((r) => unwrap<StatusCount[]>(r, 'compteurs')),
     supabase.from('rejection_reason_counts').select('*').then((r) => unwrap<ReasonCount[]>(r, 'motifs')),
     supabase.from('latest_source_runs').select('*').then((r) => unwrap<LatestRun[]>(r, 'exécutions')),
@@ -51,6 +51,15 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
       .order('created_at', { ascending: false })
       .limit(10)
       .then((r) => unwrap<RecentOffer[]>(r, 'dernières offres')),
+    supabase
+      .from('job_offers')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['new', 'reported'])
+      .is('personal_status', null)
+      .then((r) => {
+        if (r.error) throw new Error(`à traiter : ${r.error.message}`);
+        return r.count ?? 0;
+      }),
   ]).catch((error) => {
     throw new Error(errorMessage(error));
   });
@@ -61,10 +70,11 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   const stats = h(
     'div',
     { class: 'stats' },
-    stat(countFor('new'), STATUS_LABELS.new!, 'new'),
-    stat(countFor('reported'), STATUS_LABELS.reported!, 'reported'),
-    stat(countFor('rejected'), STATUS_LABELS.rejected!, 'rejected'),
-    stat(total, 'Total en base', ''),
+    stat(todo, 'À traiter (sans suivi)', '#/todo', 'todo'),
+    stat(countFor('new'), STATUS_LABELS.new!, '#/offers?status=new', 'new'),
+    stat(countFor('reported'), STATUS_LABELS.reported!, '#/offers?status=reported', 'reported'),
+    stat(countFor('rejected'), STATUS_LABELS.rejected!, '#/offers?status=rejected', 'rejected'),
+    stat(total, 'Total en base', null, 'total'),
   );
 
   const runsTable =
@@ -192,10 +202,8 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   );
 }
 
-function stat(value: number, label: string, status: string): HTMLElement {
+function stat(value: number, label: string, href: string | null, kind: string): HTMLElement {
   const content = [h('div', { class: 'value' }, String(value)), h('div', { class: 'label' }, label)];
-  const cls = `stat stat-${status || 'total'}`;
-  return status
-    ? h('a', { class: cls, href: `#/offers?status=${status}`, style: 'color:inherit' }, ...content)
-    : h('div', { class: cls }, ...content);
+  const cls = `stat stat-${kind}`;
+  return href ? h('a', { class: cls, href, style: 'color:inherit' }, ...content) : h('div', { class: cls }, ...content);
 }

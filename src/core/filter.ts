@@ -13,7 +13,7 @@ import {
 } from './types';
 
 /**
- * Les quatre règles de filtrage, évaluées en séquence. La première qui échoue
+ * Les règles de filtrage, évaluées en séquence. La première qui échoue
  * donne le motif de rejet. Ce module est partagé à l'identique par le script
  * d'ingestion et le testeur de l'interface.
  */
@@ -32,16 +32,33 @@ const fail = (rule: RuleId, reason: RejectionReason, detail: string): RuleOutcom
   detail,
 });
 
-/** 1. Le titre doit contenir au moins une expression acceptée (mots entiers). */
+/**
+ * 1. Le titre ne doit contenir aucune expression exclue (« data center ») et doit
+ * contenir au moins une expression acceptée (mots entiers).
+ */
 const titleRule: RuleFn = (offer, config) => {
   const title = normalizeText(offer.title);
+  const excluded = findPhrase(title, config.excludedTitleWords);
+  if (excluded) return fail('title', 'title_excluded', `titre: ${excluded}`);
   const hit = findPhrase(title, config.acceptedTitles);
   return hit
     ? pass('title')
     : fail('title', 'title_not_matching', 'aucune expression acceptée dans le titre');
 };
 
-/** 2. Secteur finance / banque / assurance : code NAF, puis mots-clés. */
+/**
+ * 2. Lieu : le lieu doit contenir une expression acceptée. Liste vide = pas de
+ * filtre. Un lieu absent passe : on ne peut pas prouver qu'il est hors zone.
+ */
+const locationRule: RuleFn = (offer, config) => {
+  if (config.acceptedLocations.length === 0) return pass('location');
+  const location = normalizeText(offer.location);
+  if (!location) return pass('location');
+  const hit = findPhrase(location, config.acceptedLocations);
+  return hit ? pass('location') : fail('location', 'location_not_matching', `lieu: ${offer.location}`);
+};
+
+/** 3. Secteur finance / banque / assurance : code NAF, puis mots-clés. */
 const financeRule: RuleFn = (offer, config) => {
   const naf = (offer.nafCode ?? '').trim().toUpperCase();
   if (naf) {
@@ -65,7 +82,7 @@ const financeRule: RuleFn = (offer, config) => {
 };
 
 /**
- * 3. Type de contrat. Déjà filtré côté API, revérifié ici. Une valeur absente
+ * 4. Type de contrat. Déjà filtré côté API, revérifié ici. Une valeur absente
  * n'est pas rejetée : on ne peut pas prouver qu'elle n'est pas un CDI.
  */
 const contractRule: RuleFn = (offer, config) => {
@@ -77,7 +94,7 @@ const contractRule: RuleFn = (offer, config) => {
     : fail('contract', 'contract_type', `contrat: ${contract}`);
 };
 
-/** 4. Expérience : mots de séniorité (titre, puis description), puis exigence explicite. */
+/** 5. Expérience : mots de séniorité (titre, puis description), puis exigence explicite. */
 const experienceRule: RuleFn = (offer, config) => {
   const title = normalizeText(offer.title);
   const titleHit = findPhrase(title, config.seniorityTitleWords);
@@ -94,7 +111,7 @@ const experienceRule: RuleFn = (offer, config) => {
   return pass('experience');
 };
 
-const RULES: readonly RuleFn[] = [titleRule, financeRule, contractRule, experienceRule];
+const RULES: readonly RuleFn[] = [titleRule, locationRule, financeRule, contractRule, experienceRule];
 
 /**
  * Évalue toutes les règles et renvoie le détail de chacune. Utilisé par le

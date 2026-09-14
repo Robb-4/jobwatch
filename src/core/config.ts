@@ -6,6 +6,10 @@ import type { FilterConfig, SettingRow } from './types';
  */
 export const DEFAULT_FILTER_CONFIG: FilterConfig = {
   acceptedTitles: ['data', 'data analyst', 'data analyste', 'analyste de données', 'data scientist'],
+  // « data » en mot entier attrape les électriciens et techniciens CVC de data centers.
+  excludedTitleWords: ['data center', 'data centers', 'datacenter', 'datacenters'],
+  // Vide = pas de filtre géographique. À renseigner depuis l'interface (« Paris », « Ile-de-France », « 92 »…).
+  acceptedLocations: [],
   acceptedContracts: ['CDI'],
   maxExperienceYears: 3,
   seniorityTitleWords: ['senior', 'confirmé', 'confirmée', 'lead', 'principal'],
@@ -27,6 +31,8 @@ export const DEFAULT_FILTER_CONFIG: FilterConfig = {
 /** Clé de la table `settings` pour chaque critère. */
 export const SETTING_KEYS: Record<keyof FilterConfig, string> = {
   acceptedTitles: 'accepted_titles',
+  excludedTitleWords: 'excluded_title_words',
+  acceptedLocations: 'accepted_locations',
   acceptedContracts: 'accepted_contracts',
   maxExperienceYears: 'max_experience_years',
   seniorityTitleWords: 'seniority_title_words',
@@ -37,6 +43,8 @@ export const SETTING_KEYS: Record<keyof FilterConfig, string> = {
 
 export const SETTING_LABELS: Record<keyof FilterConfig, string> = {
   acceptedTitles: 'Intitulés acceptés',
+  excludedTitleWords: 'Intitulés exclus',
+  acceptedLocations: 'Lieux acceptés',
   acceptedContracts: 'Types de contrat acceptés',
   maxExperienceYears: "Seuil d'années d'expérience (maximum exigé toléré)",
   seniorityTitleWords: 'Mots de séniorité (titre)',
@@ -48,6 +56,11 @@ export const SETTING_LABELS: Record<keyof FilterConfig, string> = {
 export const SETTING_HELP: Record<keyof FilterConfig, string> = {
   acceptedTitles:
     'Une expression par ligne. Le titre doit en contenir au moins une, en mots entiers (« data » ne matche pas « database »).',
+  excludedTitleWords:
+    'Une expression par ligne. Présente dans le titre → rejet immédiat, même si un intitulé accepté est aussi présent (« Électricien Data Center »).',
+  acceptedLocations:
+    'Une expression par ligne, cherchée en mots entiers dans le lieu de l’offre : ville, département en clair ou en numéro (« Paris », « Ile-de-France », « 92 »). ' +
+    'Liste vide = toute la France. Un lieu absent passe ; un lieu « France » seul (offre nationale) ne passe que si « France » figure dans la liste.',
   acceptedContracts:
     'Un type par ligne, après canonisation : « permanent » (Adzuna) et « contrat à durée indéterminée » valent « CDI ».',
   maxExperienceYears:

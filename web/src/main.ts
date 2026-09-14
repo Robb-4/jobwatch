@@ -5,6 +5,7 @@ import { renderLogin } from './pages/login';
 import { renderOffers } from './pages/offers';
 import { renderRuns } from './pages/runs';
 import { renderTester } from './pages/tester';
+import { renderTodo } from './pages/todo';
 import { configError, GITHUB_REPO, supabase } from './supabase';
 import { errorBox, errorMessage, h, link, replaceChildren } from './ui';
 
@@ -17,6 +18,7 @@ type PageRenderer = (root: HTMLElement, params: URLSearchParams) => Promise<void
 
 const PAGES: Record<string, { label: string; render: PageRenderer }> = {
   dashboard: { label: 'Tableau de bord', render: renderDashboard },
+  todo: { label: 'À traiter', render: renderTodo },
   offers: { label: 'Offres', render: renderOffers },
   criteria: { label: 'Critères', render: renderCriteria },
   tester: { label: 'Testeur', render: renderTester },

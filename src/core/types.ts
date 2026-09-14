@@ -39,6 +39,8 @@ export interface JobSource {
 /** Codes stables de rejet, utilisés pour compter par motif. */
 export type RejectionReason =
   | 'title_not_matching'
+  | 'title_excluded'
+  | 'location_not_matching'
   | 'finance_naf'
   | 'finance_keyword'
   | 'contract_type'
@@ -48,6 +50,8 @@ export type RejectionReason =
 
 export const REJECTION_REASON_LABELS: Record<RejectionReason, string> = {
   title_not_matching: 'Intitulé hors cible',
+  title_excluded: 'Intitulé exclu (ex. data center)',
+  location_not_matching: 'Lieu hors zone',
   finance_naf: 'Secteur finance (code NAF)',
   finance_keyword: 'Secteur finance (mot-clé)',
   contract_type: 'Type de contrat',
@@ -56,20 +60,25 @@ export const REJECTION_REASON_LABELS: Record<RejectionReason, string> = {
   experience_too_high: 'Expérience exigée trop élevée',
 };
 
-/** Identifiant des quatre règles, dans leur ordre d'évaluation. */
-export type RuleId = 'title' | 'finance' | 'contract' | 'experience';
+/** Identifiant des règles, dans leur ordre d'évaluation. */
+export type RuleId = 'title' | 'location' | 'finance' | 'contract' | 'experience';
 
 export const RULE_LABELS: Record<RuleId, string> = {
   title: '1. Intitulé',
-  finance: '2. Secteur finance / banque / assurance',
-  contract: '3. Type de contrat',
-  experience: '4. Expérience',
+  location: '2. Lieu',
+  finance: '3. Secteur finance / banque / assurance',
+  contract: '4. Type de contrat',
+  experience: '5. Expérience',
 };
 
-/** Les sept critères modifiables depuis l'interface. */
+/** Les critères modifiables depuis l'interface. */
 export interface FilterConfig {
   /** Le titre doit contenir au moins une de ces expressions (mots entiers). */
   acceptedTitles: string[];
+  /** Expressions qui écartent une offre dès le titre (« data center »). */
+  excludedTitleWords: string[];
+  /** Le lieu doit contenir une de ces expressions ; liste vide = toute la France. */
+  acceptedLocations: string[];
   /** Types de contrat acceptés, après canonisation ('CDI'). */
   acceptedContracts: string[];
   /** Exigence d'expérience maximale tolérée, en années (inclus). */
@@ -87,7 +96,7 @@ export interface FilterConfig {
 /** Sous-ensemble d'une offre nécessaire au filtrage (le testeur n'a ni URL ni identifiant). */
 export type FilterableOffer = Pick<
   JobOffer,
-  'title' | 'company' | 'sector' | 'nafCode' | 'contractType' | 'description'
+  'title' | 'company' | 'location' | 'sector' | 'nafCode' | 'contractType' | 'description'
 >;
 
 export type FilterDecision =
