@@ -1,0 +1,78 @@
+name: report
+
+on:
+  schedule:
+    # Le cron d'Actions est en UTC et ignore l'heure d'été. On déclenche aux deux
+    # heures UTC possibles pour chaque rendez-vous Paris (7 h et 19 h) et une
+    # étape de garde ne laisse passer que la bonne. Minute 15 : marge pour les
+    # retards habituels de 5 à 15 min sans changer d'heure.
+    - cron: '15 5,6 * * *'
+    - cron: '15 17,18 * * *'
+  workflow_dispatch:
+    inputs:
+      period:
+        description: 'Période forcée (matin / soir), sinon déduite de l’heure de Paris'
+        required: false
+        type: choice
+        options: ['', 'matin', 'soir']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jobwatch-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Garde fuseau horaire (Europe/Paris)
+        id: guard
+        env:
+          # Heures Paris voulues, séparées par des espaces. Variable de dépôt REPORT_HOURS, défaut « 7 19 ».
+          REPORT_HOURS: ${{ vars.REPORT_HOURS }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Lancement manuel : pas de garde."
+            exit 0
+          fi
+          hour=$(TZ=Europe/Paris date +%-H)
+          wanted="${REPORT_HOURS:-7 19}"
+          for h in $wanted; do
+            if [ "$h" = "$hour" ]; then
+              echo "run=true" >> "$GITHUB_OUTPUT"
+              echo "Heure Paris $hour : rapport à envoyer."
+              exit 0
+            fi
+          done
+          echo "run=false" >> "$GITHUB_OUTPUT"
+          echo "Heure Paris $hour hors des heures voulues ($wanted) : rien à faire (déclenchement jumeau)."
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.run == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+        if: steps.guard.outputs.run == 'true'
+
+      - name: Envoi du rapport
+        if: steps.guard.outputs.run == 'true'
+        run: npm run task:report
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+          REPORT_PERIOD: ${{ inputs.period }}

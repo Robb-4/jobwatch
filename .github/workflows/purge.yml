@@ -1,0 +1,32 @@
+name: purge
+
+on:
+  schedule:
+    # Chaque dimanche à 04:00 UTC
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Suppression des offres importées il y a plus de PURGE_DAYS jours
+        run: npm run task:purge
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Variable de dépôt optionnelle, défaut 60
+          PURGE_DAYS: ${{ vars.PURGE_DAYS }}

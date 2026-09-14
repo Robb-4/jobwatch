@@ -1,0 +1,40 @@
+name: keepalive
+
+# GitHub désactive les workflows planifiés après 60 jours sans activité sur le
+# dépôt. Ce workflow pousse un commit vide dès que le dernier commit a plus de
+# 45 jours, ce qui compte comme une activité et maintient la veille en vie.
+# Il doit lui-même tourner : s'il a été désactivé, le réactiver depuis l'onglet
+# Actions (voir README).
+
+on:
+  schedule:
+    # Chaque lundi à 03:00 UTC
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Commit vide si le dépôt est inactif depuis plus de 45 jours
+        env:
+          MAX_AGE_DAYS: ${{ vars.KEEPALIVE_MAX_AGE_DAYS || 45 }}
+        run: |
+          last=$(git log -1 --format=%ct)
+          age=$(( ( $(date +%s) - last ) / 86400 ))
+          echo "Dernier commit il y a $age jour(s)."
+          if [ "$age" -lt "$MAX_AGE_DAYS" ]; then
+            echo "Rien à faire."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keepalive des workflows planifiés"
+          git push
