@@ -108,7 +108,7 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
       return r.count ?? 0;
     });
 
-  const [statuses, reasons, runs, recent, todo, applied, discarded, history] = await Promise.all([
+  const [statuses, reasons, runs, recent, todo, toFollow, applied, discarded, history] = await Promise.all([
     supabase.from('job_offer_status_counts').select('*').then((r) => unwrap<StatusCount[]>(r, 'compteurs')),
     supabase.from('rejection_reason_counts').select('*').then((r) => unwrap<ReasonCount[]>(r, 'motifs')),
     supabase.from('latest_source_runs').select('*').then((r) => unwrap<LatestRun[]>(r, 'exécutions')),
@@ -125,6 +125,9 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
         .select('id', { count: 'exact', head: true })
         .in('status', ['new', 'reported'])
         .or('personal_status.is.null,personal_status.eq.to_follow'),
+    ),
+    countWhere('à suivre', (q) =>
+      q.select('id', { count: 'exact', head: true }).in('status', ['new', 'reported']).eq('personal_status', 'to_follow'),
     ),
     countWhere('candidatures', (q) => q.select('id', { count: 'exact', head: true }).eq('personal_status', 'applied')),
     countWhere('écartées par moi', (q) => q.select('id', { count: 'exact', head: true }).eq('personal_status', 'discarded')),
@@ -215,6 +218,18 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
           { labelHead: 'Motif', valueHead: 'Offres', total: rejectedTotal },
         );
 
+  // Mon suivi : une barre par état, cliquable vers la liste correspondante.
+  const followUpChart = barChart(
+    [
+      { label: 'À traiter (sans suivi)', value: todo - toFollow, href: '#/todo' },
+      { label: 'À suivre', value: toFollow, href: '#/offers?personal=to_follow' },
+      { label: 'Candidatures envoyées', value: applied, href: '#/offers?personal=applied' },
+      { label: 'Écartées par moi', value: discarded, href: '#/offers?personal=discarded' },
+      { label: 'Écartées par les filtres', value: countFor('rejected'), href: '#/offers?status=rejected' },
+    ],
+    { labelHead: 'État', valueHead: 'Offres', total },
+  );
+
   const history30 = dailyPoints(history, since);
   const retained30 = history30.reduce((s, p) => s + p.value, 0);
   const historyChart = columnChart(history30, { labelHead: 'Jour', valueHead: 'Retenues' });
@@ -250,6 +265,11 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
     h('h1', {}, 'Tableau de bord'),
     stats,
     technical,
+    section(
+      'Mon suivi',
+      h('p', { class: 'small muted', style: 'margin:-6px 0 10px' }, `${total} offre${total > 1 ? 's' : ''} en base ; cliquer une barre pour ouvrir la liste.`),
+      followUpChart,
+    ),
     h(
       'div',
       { class: 'grid' },
