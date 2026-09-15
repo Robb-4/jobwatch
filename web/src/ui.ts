@@ -71,16 +71,18 @@ export function errorMessage(error: unknown): string {
   return String(error);
 }
 
+/** Statut technique : parcours de l'offre dans le système. */
 export const STATUS_LABELS: Record<string, string> = {
-  new: 'Retenue, à envoyer',
-  reported: 'Envoyée',
-  rejected: 'Écartée',
+  new: 'En attente du prochain mail',
+  reported: 'Envoyée par mail',
+  rejected: 'Écartée par les filtres',
 };
 
+/** Suivi personnel : ce que vous en avez fait. */
 export const PERSONAL_STATUS_LABELS: Record<string, string> = {
   to_follow: 'À suivre',
   applied: 'Candidature envoyée',
-  discarded: 'Écartée',
+  discarded: 'Écartée par moi',
 };
 
 /** Lien interne (routage par hash). */

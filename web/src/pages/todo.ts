@@ -3,10 +3,10 @@ import { supabase } from '../supabase';
 import { badge, errorMessage, formatDate, h, loading, PERSONAL_STATUS_LABELS, replaceChildren } from '../ui';
 
 /**
- * Vue « À traiter » : les offres retenues qui n'ont pas encore de suivi
- * personnel, avec un aperçu de l'annonce et trois boutons en un clic.
- * C'est l'usage quotidien : on vide la liste, le reste se retrouve dans
- * « Offres » filtré par suivi personnel.
+ * Vue « À traiter » : les offres retenues qui ne sont ni « candidature
+ * envoyée » ni « écartée par moi » (donc sans suivi, ou « à suivre »), avec un
+ * aperçu de l'annonce et des boutons en un clic. C'est l'usage quotidien : on
+ * vide la liste, le reste se retrouve dans « Offres » filtré par suivi.
  */
 
 interface TodoOffer {
@@ -22,6 +22,7 @@ interface TodoOffer {
   published_at: string | null;
   created_at: string;
   status: string;
+  personal_status: string | null;
 }
 
 const LIMIT = 200;
@@ -37,9 +38,9 @@ export async function renderTodo(root: HTMLElement): Promise<void> {
   const [{ data: rows, error }, { data: sources }] = await Promise.all([
     supabase
       .from('job_offers')
-      .select('id,source,title,company,location,contract_type,salary,url,description,published_at,created_at,status')
+      .select('id,source,title,company,location,contract_type,salary,url,description,published_at,created_at,status,personal_status')
       .in('status', ['new', 'reported'])
-      .is('personal_status', null)
+      .or('personal_status.is.null,personal_status.eq.to_follow')
       .order('published_at', { ascending: false, nullsFirst: false })
       .order('id', { ascending: false })
       .limit(LIMIT),
@@ -86,8 +87,22 @@ export async function renderTodo(root: HTMLElement): Promise<void> {
         feedback.replaceChildren(h('div', { class: 'alert alert-error' }, `Enregistrement impossible : ${errorMessage(e)}`));
       }
     };
+    const followed = offer.personal_status === 'to_follow';
+    // « À suivre » garde l'offre dans la liste, marquée d'une étoile ; les deux autres la retirent.
+    const setFollow = async () => {
+      const { error: updateError } = await supabase.from('job_offers').update({ personal_status: 'to_follow' }).eq('id', offer.id);
+      if (updateError) {
+        feedback.replaceChildren(h('div', { class: 'alert alert-error' }, `Enregistrement impossible : ${updateError.message}`));
+        return;
+      }
+      offer.personal_status = 'to_follow';
+      card.classList.add('todo-followed');
+      followBtn.replaceWith(badge('★ À suivre', 'warn'));
+    };
+    const followBtn = h('button', { type: 'button', onClick: () => void setFollow() }, `★ ${PERSONAL_STATUS_LABELS.to_follow}`);
+    if (followed) card.classList.add('todo-followed');
     buttons.append(
-      h('button', { type: 'button', class: 'primary', onClick: () => void setStatus('to_follow') }, `★ ${PERSONAL_STATUS_LABELS.to_follow}`),
+      followed ? badge('★ À suivre', 'warn') : followBtn,
       h('button', { type: 'button', class: 'success', onClick: () => void setStatus('applied') }, `✓ ${PERSONAL_STATUS_LABELS.applied}`),
       h('button', { type: 'button', class: 'danger', onClick: () => void setStatus('discarded') }, `✕ ${PERSONAL_STATUS_LABELS.discarded}`),
     );
@@ -121,8 +136,8 @@ export async function renderTodo(root: HTMLElement): Promise<void> {
     h(
       'p',
       { class: 'muted' },
-      'Les offres retenues sans suivi personnel, les plus récentes en premier. Un clic classe l’offre et la retire de la liste ; ',
-      'on la retrouve ensuite dans « Offres » via le filtre Suivi personnel.',
+      'Toutes les offres retenues qui ne sont ni « candidature envoyée » ni « écartée par moi », les plus récentes en premier. ',
+      '« À suivre » la garde ici avec une étoile ; les deux autres boutons la retirent de la liste.',
     ),
     feedback,
     list,

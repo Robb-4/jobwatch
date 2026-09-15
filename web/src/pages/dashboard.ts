@@ -102,7 +102,13 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   since.setHours(0, 0, 0, 0);
   since.setDate(since.getDate() - (HISTORY_DAYS - 1));
 
-  const [statuses, reasons, runs, recent, todo, history] = await Promise.all([
+  const countWhere = (context: string, build: (q: ReturnType<typeof supabase.from>) => PromiseLike<{ count: number | null; error: { message: string } | null }>) =>
+    build(supabase.from('job_offers')).then((r) => {
+      if (r.error) throw new Error(`${context} : ${r.error.message}`);
+      return r.count ?? 0;
+    });
+
+  const [statuses, reasons, runs, recent, todo, applied, discarded, history] = await Promise.all([
     supabase.from('job_offer_status_counts').select('*').then((r) => unwrap<StatusCount[]>(r, 'compteurs')),
     supabase.from('rejection_reason_counts').select('*').then((r) => unwrap<ReasonCount[]>(r, 'motifs')),
     supabase.from('latest_source_runs').select('*').then((r) => unwrap<LatestRun[]>(r, 'exécutions')),
@@ -113,15 +119,15 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
       .order('created_at', { ascending: false })
       .limit(10)
       .then((r) => unwrap<RecentOffer[]>(r, 'dernières offres')),
-    supabase
-      .from('job_offers')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['new', 'reported'])
-      .is('personal_status', null)
-      .then((r) => {
-        if (r.error) throw new Error(`à traiter : ${r.error.message}`);
-        return r.count ?? 0;
-      }),
+    // À traiter : retenue par les filtres, et ni candidature envoyée ni écartée par moi
+    countWhere('à traiter', (q) =>
+      q
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['new', 'reported'])
+        .or('personal_status.is.null,personal_status.eq.to_follow'),
+    ),
+    countWhere('candidatures', (q) => q.select('id', { count: 'exact', head: true }).eq('personal_status', 'applied')),
+    countWhere('écartées par moi', (q) => q.select('id', { count: 'exact', head: true }).eq('personal_status', 'discarded')),
     loadRecentOffers(since),
   ]).catch((error) => {
     throw new Error(errorMessage(error));
@@ -130,14 +136,21 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
   const countFor = (status: string) => statuses.find((s) => s.status === status)?.count ?? 0;
   const total = statuses.reduce((sum, s) => sum + s.count, 0);
 
+  // Tuiles : le suivi personnel d'abord, la mécanique interne en une ligne discrète.
   const stats = h(
     'div',
     { class: 'stats' },
-    stat(todo, 'À traiter (sans suivi)', '#/todo', 'todo'),
-    stat(countFor('new'), STATUS_LABELS.new!, '#/offers?status=new', 'new'),
-    stat(countFor('reported'), STATUS_LABELS.reported!, '#/offers?status=reported', 'reported'),
-    stat(countFor('rejected'), STATUS_LABELS.rejected!, '#/offers?status=rejected', 'rejected'),
-    stat(total, 'Total en base', null, 'total'),
+    stat(todo, 'À traiter', '#/todo', 'todo'),
+    stat(applied, 'Candidatures envoyées', '#/offers?personal=applied', 'applied'),
+    stat(discarded, 'Écartées par moi', '#/offers?personal=discarded', 'discarded'),
+    stat(countFor('rejected'), 'Écartées par les filtres', '#/offers?status=rejected', 'rejected'),
+  );
+  const technical = h(
+    'p',
+    { class: 'small muted', style: 'margin:-6px 0 18px' },
+    `${countFor('new')} offre${countFor('new') > 1 ? 's' : ''} en attente du prochain mail · `,
+    `${countFor('reported')} déjà envoyée${countFor('reported') > 1 ? 's' : ''} par mail · `,
+    `${total} en base au total.`,
   );
 
   const runsTable =
@@ -236,6 +249,7 @@ export async function renderDashboard(root: HTMLElement): Promise<void> {
     root,
     h('h1', {}, 'Tableau de bord'),
     stats,
+    technical,
     h(
       'div',
       { class: 'grid' },
