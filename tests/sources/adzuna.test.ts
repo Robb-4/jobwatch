@@ -128,6 +128,54 @@ describe('AdzunaSource — pagination et normalisation', () => {
     );
   });
 
+  it('réessaie sur un 503 passager puis réussit', async () => {
+    let calls = 0;
+    const fetchImpl: FetchLike = async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response('<html>Uh oh, something isn’t right</html>', { status: 503 })
+        : jsonResponse({ results: [result(1)] });
+    };
+    const offers = await new AdzunaSource({ ...credentials, fetchImpl, sleep: async () => {}, searches: [{ title_only: 'data' }] }).fetch();
+    expect(calls).toBe(2);
+    expect(offers).toHaveLength(1);
+  });
+
+  it('garde les pages déjà récupérées si une page suivante reste en 503', async () => {
+    const warnings: string[] = [];
+    const { fetchImpl, urls } = recordingFetch((url) => {
+      const page = Number(url.pathname.split('/').pop());
+      if (page === 3) return new Response('<html>Uh oh, something isn’t right</html>', { status: 503 });
+      return jsonResponse({ results: [result(page * 10), result(page * 10 + 1)] });
+    });
+    const source = new AdzunaSource({
+      ...credentials,
+      fetchImpl,
+      sleep: async () => {},
+      warn: (m) => warnings.push(m),
+      resultsPerPage: 2,
+      maxPages: 5,
+      searches: [{ title_only: 'data' }, { title_only: 'analyste données' }],
+    });
+    const offers = await source.fetch();
+    // pages 1 et 2 conservées, page 3 tentée 3 fois puis abandonnée ; la seconde recherche continue
+    expect(offers.map((o) => o.externalId)).toEqual(['10', '11', '20', '21']);
+    expect(urls.filter((u) => u.pathname.endsWith('/3'))).toHaveLength(3);
+    expect(urls.some((u) => u.searchParams.get('title_only') === 'analyste données')).toBe(true);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatch(/page 3 .* abandonnée, 4 offre\(s\) conservée\(s\)/);
+  });
+
+  it('échoue explicitement si la première page reste en 503 après les nouvelles tentatives', async () => {
+    let calls = 0;
+    const fetchImpl: FetchLike = async () => {
+      calls += 1;
+      return new Response('<html>Uh oh</html>', { status: 503 });
+    };
+    await expect(new AdzunaSource({ ...credentials, fetchImpl, sleep: async () => {} }).fetch()).rejects.toThrow(/HTTP 503/);
+    expect(calls).toBe(3);
+  });
+
   it('refuse de démarrer sans identifiants', () => {
     expect(() => new AdzunaSource({ appId: '', appKey: '' })).toThrow(/ADZUNA_APP_ID/);
   });

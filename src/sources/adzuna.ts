@@ -1,6 +1,6 @@
 import { normalizeContractType } from '../core/contract';
 import type { JobOffer, JobSource } from '../core/types';
-import { defaultFetch, errorExcerpt, type FetchLike } from './http';
+import { defaultFetch, defaultSleep, errorExcerpt, fetchWithRetry, type FetchLike, type SleepLike } from './http';
 
 /**
  * Adzuna — API Jobs France.
@@ -10,7 +10,10 @@ import { defaultFetch, errorExcerpt, type FetchLike } from './http';
  * - chercher dans le titre seul avec `title_only`, jamais `what_or` (qui ramène
  *   tout ce qui contient « données » dans un paragraphe RGPD) ;
  * - `title_only` combine ses mots en ET : on enchaîne plusieurs recherches et
- *   la déduplication fusionne les recouvrements.
+ *   la déduplication fusionne les recouvrements ;
+ * - l'API renvoie parfois un 503 HTML sur une page isolée : on réessaie, et si
+ *   la panne persiste au-delà de la première page, on garde ce qui a déjà été
+ *   récupéré (la récupération suivante, deux heures plus tard, complètera).
  */
 
 export interface AdzunaSearch {
@@ -22,6 +25,9 @@ export interface AdzunaOptions {
   appId: string;
   appKey: string;
   fetchImpl?: FetchLike;
+  sleep?: SleepLike;
+  /** Journal des incidents non bloquants (page abandonnée après nouvelles tentatives). */
+  warn?: (message: string) => void;
   /** Recherches enchaînées puis fusionnées. */
   searches?: readonly AdzunaSearch[];
   /** Plafond de pages par recherche (50 résultats par page). */
@@ -98,6 +104,8 @@ export class AdzunaSource implements JobSource {
   readonly label = 'Adzuna';
 
   private readonly fetchImpl: FetchLike;
+  private readonly sleep: SleepLike;
+  private readonly warn: (message: string) => void;
   private readonly searches: readonly AdzunaSearch[];
   private readonly maxPages: number;
   private readonly resultsPerPage: number;
@@ -110,6 +118,8 @@ export class AdzunaSource implements JobSource {
       throw new Error('Adzuna : ADZUNA_APP_ID et ADZUNA_APP_KEY sont requis.');
     }
     this.fetchImpl = options.fetchImpl ?? defaultFetch;
+    this.sleep = options.sleep ?? defaultSleep;
+    this.warn = options.warn ?? ((message) => console.warn(message));
     this.searches = options.searches ?? DEFAULT_ADZUNA_SEARCHES;
     this.maxPages = options.maxPages ?? 5;
     this.resultsPerPage = Math.min(options.resultsPerPage ?? 50, 50);
@@ -139,7 +149,15 @@ export class AdzunaSource implements JobSource {
     const byId = new Map<string, JobOffer>();
     for (const search of this.searches) {
       for (let page = 1; page <= this.maxPages; page += 1) {
-        const results = await this.fetchPage(search, page);
+        let results: AdzunaResult[];
+        try {
+          results = await this.fetchPage(search, page);
+        } catch (error) {
+          // Rien de récupéré du tout : vraie panne, à remonter. Sinon on garde l'acquis.
+          if (byId.size === 0) throw error;
+          this.warn(`Adzuna : page ${page} de « ${search.title_only} » abandonnée, ${byId.size} offre(s) conservée(s) — ${String(error instanceof Error ? error.message : error)}`);
+          break;
+        }
         for (const result of results) {
           const offer = mapAdzunaResult(result);
           if (!byId.has(offer.externalId)) byId.set(offer.externalId, offer);
@@ -155,7 +173,7 @@ export class AdzunaSource implements JobSource {
     const url = this.buildUrl(search, page);
     let response: Response;
     try {
-      response = await this.fetchImpl(url, { headers: { Accept: 'application/json' } });
+      response = await fetchWithRetry(this.fetchImpl, url, { headers: { Accept: 'application/json' } }, this.sleep);
     } catch (error) {
       throw new Error(`Adzuna : appel réseau impossible (« ${search.title_only} », page ${page}) — ${String(error)}`);
     }

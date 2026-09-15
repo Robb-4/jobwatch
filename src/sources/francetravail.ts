@@ -1,6 +1,6 @@
 import { normalizeContractType } from '../core/contract';
 import type { JobOffer, JobSource } from '../core/types';
-import { defaultFetch, defaultSleep, errorExcerpt, type FetchLike, type SleepLike } from './http';
+import { defaultFetch, defaultSleep, errorExcerpt, fetchWithRetry, type FetchLike, type SleepLike } from './http';
 
 /**
  * France Travail — API Offres d'emploi v2.
@@ -181,9 +181,12 @@ export class FranceTravailSource implements JobSource {
     const url = this.buildSearchUrl(motsCles, start);
     let response: Response;
     try {
-      response = await this.fetchImpl(url, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
+      response = await fetchWithRetry(
+        this.fetchImpl,
+        url,
+        { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } },
+        this.sleep,
+      );
     } catch (error) {
       throw new Error(`France Travail : appel réseau impossible (« ${motsCles} », range ${start}) — ${String(error)}`);
     }
