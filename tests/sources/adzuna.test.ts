@@ -158,12 +158,12 @@ describe('AdzunaSource — pagination et normalisation', () => {
       searches: [{ title_only: 'data' }, { title_only: 'analyste données' }],
     });
     const offers = await source.fetch();
-    // pages 1 et 2 conservées, page 3 tentée 3 fois puis abandonnée ; la seconde recherche continue
+    // pages 1 et 2 conservées ; page 3 tentée 3 fois puis abandonnée, pour chacune des deux recherches
     expect(offers.map((o) => o.externalId)).toEqual(['10', '11', '20', '21']);
-    expect(urls.filter((u) => u.pathname.endsWith('/3'))).toHaveLength(3);
+    expect(urls.filter((u) => u.pathname.endsWith('/3'))).toHaveLength(6);
     expect(urls.some((u) => u.searchParams.get('title_only') === 'analyste données')).toBe(true);
-    expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toMatch(/page 3 .* abandonnée, 4 offre\(s\) conservée\(s\)/);
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toMatch(/page 3 de « data » abandonnée, 4 offre\(s\) conservée\(s\)/);
   });
 
   it('échoue explicitement si la première page reste en 503 après les nouvelles tentatives', async () => {
