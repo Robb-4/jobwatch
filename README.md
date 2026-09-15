@@ -74,15 +74,19 @@ publiés.
 1. Créer un compte, puis une application.
 2. Souscrire à l'API **Offres d'emploi v2** ; noter le *client ID* et le
    *client secret*.
-3. ⚠️ La source France Travail n'a **jamais été validée contre l'API réelle**
-   faute d'identifiants (écrite d'après la documentation). Au premier appel réel,
-   vérifier en particulier :
-   - que l'authentification passe depuis GitHub Actions (plages d'IP sortantes
-     acceptées par le profil déclaré) ;
-   - le comportement de `motsCles` : s'il cherche dans tout le texte de
-     l'annonce, le nombre d'offres écartées pour « intitulé hors cible » sera
-     élevé — c'est attendu, le filtrage local compense — mais il faudra peut-être
-     ajuster `DEFAULT_FRANCETRAVAIL_SEARCHES` dans `src/sources/francetravail.ts`.
+3. Vérifier le premier appel réel avec la sonde, qui n'écrit rien en base :
+
+   ```bash
+   npx tsx scripts/probe-francetravail.ts            # « data » puis « data analyst »
+   npx tsx scripts/probe-francetravail.ts "données"  # autres mots-clés au choix
+   ```
+
+   Faits vérifiés le 15 septembre 2026 : l'authentification `client_credentials`
+   passe, la recherche renvoie `200` avec `Content-Range: offres 0-112/113`,
+   et `motsCles=data` cherche **surtout dans l'intitulé** : 95 titres sur 113
+   contiennent « data », les autres sont écartés par la règle 1. Le volume
+   (CDI, débutant à 3 ans, 7 jours) tient dans une seule page de 150. Les
+   codes NAF sont fournis au format `70.21Z`, avec un point.
 
 Une source sans identifiants est simplement ignorée par la tâche `fetch`.
 
